@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "name": "ChatAnalysis",
+  "namespace": "com.peppysisay",
+  "fields": [
+    {
+      "name": "message",
+      "type": "string"
+    },
+    {
+      "name": "word_count",
+      "type": "int"
+    },
+    {
+      "name": "created",
+      "type": "string"
+    }
+  ]
+}

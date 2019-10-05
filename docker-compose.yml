@@ -1,0 +1,10 @@
+version: '3'
+services:
+  pubsub-emulator:
+    image: 'messagebird/gcloud-pubsub-emulator:latest'
+    environment:
+      PUBSUB_PROJECT1: personal-site-staging-a449f,group-chat-messages:group-chat-message-data-flow
+    ports:
+      - 8681:8681
+  beam:
+    build: ./beam/

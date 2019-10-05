@@ -1,0 +1,9 @@
+.DS_STORE
+
+.idea
+
+beam/target
+beam/beam.iml
+beam/src/test
+
+debug/venv-python-3

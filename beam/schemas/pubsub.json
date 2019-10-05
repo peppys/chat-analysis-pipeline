@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "ExpectedPubsubPayload",
+  "namespace": "com.peppysisay",
+  "fields": [
+    {
+      "name": "message",
+      "type": "string"
+    }
+  ]
+}
