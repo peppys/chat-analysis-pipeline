@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "InputRecord",
+  "namespace": "com.peppysisay.avro",
+  "fields": [
+    {
+      "name": "name",
+      "type": "string"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "OutputRecord",
+  "namespace": "com.peppysisay.avro",
+  "fields": [
+    {
+      "name": "name",
+      "type": "string"
+    }
+  ]
+}

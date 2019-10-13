@@ -1,22 +1,20 @@
 package com.peppysisay
 
-import org.apache.avro.Schema
-import org.apache.avro.generic.{GenericDatumReader, GenericRecord}
-import org.apache.avro.io.DecoderFactory
-import org.apache.beam.sdk.Pipeline
-import org.apache.beam.sdk.coders.AvroCoder
-import org.apache.beam.sdk.io.{FileIO}
-import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO
+import com.peppysisay.avro.InputRecord
+import com.peppysisay.avro.OutputRecord
+import org.apache.avro.generic.GenericRecord
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage
+import org.apache.avro.io.DecoderFactory
+import org.apache.avro.specific.SpecificDatumReader
+import org.apache.beam.sdk.Pipeline
+import org.apache.beam.sdk.io.FileIO
+import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO
 import org.apache.beam.sdk.io.parquet.ParquetIO
-import org.apache.beam.sdk.options.Validation.Required
 import org.apache.beam.sdk.options.{Default, Description, PipelineOptions, PipelineOptionsFactory}
 import org.apache.beam.sdk.transforms.DoFn.ProcessElement
 import org.apache.beam.sdk.transforms.windowing.{FixedWindows, Window}
 import org.apache.beam.sdk.transforms.{DoFn, ParDo}
-import org.joda.time.{Duration, Instant}
-
-import scala.io.Source
+import org.joda.time.Duration
 
 object ChatAnalysisPipeline {
 
@@ -26,31 +24,20 @@ object ChatAnalysisPipeline {
       .withValidation()
       .as(classOf[ChatAnalysisPipelineOptions])
 
-    val inputSchemaJson = Source.fromFile(options.getInputSchemaPath()).mkString
-    val outputSchemaJson = Source.fromFile(options.getOutputSchemaPath()).mkString
-
-    val inputSchema = new Schema.Parser().parse(inputSchemaJson)
-    val outputSchema = new Schema.Parser().parse(outputSchemaJson)
-
     val pipeline = Pipeline.create(options)
 
-    val input =
-      pipeline
-        .apply(PubsubIO.readMessages().fromSubscription(options.getPubsubSubscription()))
-        .apply(ParDo.of(new ValidatePubsubMessageSchema(inputSchemaJson)))
-        .setCoder(AvroCoder.of(inputSchema))
-
-    // Handle input/output in windows
-    val windowedInput =
-      input.apply(Window.into(FixedWindows.of(Duration.standardSeconds(options.getWindowSize()))))
-
-    windowedInput.apply(
-      FileIO.write()
-        .via(ParquetIO.sink(outputSchema))
-        .to(options.getOutput())
-        .withSuffix(".parquet")
-        .withNumShards(1)
-    )
+    pipeline
+      .apply(PubsubIO.readMessages().fromSubscription(options.getPubsubSubscription()))
+      .apply(ParDo.of(new DecodeAndValidatePubsubMessage()))
+      .apply(Window.into(FixedWindows.of(Duration.standardSeconds(1))))
+      .apply(ParDo.of(new DebugMessage()))
+      .apply(
+        FileIO.write()
+          .via(ParquetIO.sink(OutputRecord.getClassSchema()))
+          .to(options.getOutput())
+          .withSuffix(".parquet")
+          .withNumShards(1)
+      )
 
     println("Running pipeline...")
 
@@ -59,25 +46,39 @@ object ChatAnalysisPipeline {
     try {
       result.waitUntilFinish()
     } catch {
-      case exc: Exception =>
+      case exception: Exception => {
         println("Errored out")
-        print(exc.getMessage)
+        print(exception.printStackTrace())
         result.cancel()
+      }
     }
   }
 }
 
-class ValidatePubsubMessageSchema(schemaJson: String) extends DoFn[PubsubMessage, GenericRecord] {
+class DecodeAndValidatePubsubMessage extends DoFn[PubsubMessage, InputRecord] {
   @ProcessElement
   def processElement(context: ProcessContext): Unit = {
-    println("RECEIVED MESSAGE: " + new String(context.element().getPayload()))
+    println("Handling pubsub message " + new String(context.element().getPayload))
 
-    val schema = new Schema.Parser().parse(schemaJson)
-    val reader = new GenericDatumReader[GenericRecord](schema)
-    val decoder = DecoderFactory.get.binaryDecoder(context.element().getPayload(), null)
-    val record = reader.read(null, decoder)
+    try {
+      val reader = new SpecificDatumReader[InputRecord](InputRecord.getClassSchema)
+      val decoder = DecoderFactory.get.jsonDecoder(InputRecord.getClassSchema, new String(context.element().getPayload))
+      val record = reader.read(null, decoder);
 
-    context.outputWithTimestamp(record, new Instant())
+      context.output(record)
+    } catch {
+      case exception: Exception => exception.printStackTrace()
+    }
+  }
+}
+
+
+class DebugMessage extends DoFn[GenericRecord, GenericRecord] {
+  @ProcessElement
+  def processElement(context: ProcessContext): Unit = {
+    println("About to output message " + new String(context.element().toString))
+
+    context.output(context.element())
   }
 }
 
@@ -89,20 +90,8 @@ trait ChatAnalysisPipelineOptions extends PipelineOptions {
 
   def setPubsubSubscription(topic: String)
 
-  @Description("Path to input JSON schema")
-  @Required
-  def getInputSchemaPath(): String
-
-  def setInputSchemaPath(schema: String)
-
-  @Description("Path to output JSON schema")
-  @Required
-  def getOutputSchemaPath(): String
-
-  def setOutputSchemaPath(schema: String)
-
   @Description("Path of the file to write to")
-  @Default.String("gs://worship-team-chat-bot")
+  @Default.String("sdfsdfsdfsdfs")
   def getOutput(): String
 
   def setOutput(path: String)

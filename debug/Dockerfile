@@ -4,4 +4,4 @@ ADD . .
 
 RUN pip install -r requirements.txt
 
-CMD [ "python", "./subscriber.py" ]
+CMD [ "python", "./publisher.py" ]
