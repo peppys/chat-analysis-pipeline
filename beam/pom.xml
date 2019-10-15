@@ -18,10 +18,12 @@
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
     <encoding>UTF-8</encoding>
-    <scala.version>2.12.10</scala.version>
+    <scala.version>2.11.0</scala.version>
     <avro.version>1.8.2</avro.version>
+    <spark.version>2.4.3</spark.version>
+    <beam.version>2.15.0</beam.version>
     <maven-build-helper-plugin.version>3.0.0</maven-build-helper-plugin.version>
-    <scala.compat.version>2.12</scala.compat.version>
+    <scala.compat.version>2.11</scala.compat.version>
     <spec2.version>4.2.0</spec2.version>
   </properties>
 
@@ -34,17 +36,17 @@
     <dependency>
       <groupId>org.apache.beam</groupId>
       <artifactId>beam-sdks-java-io-google-cloud-platform</artifactId>
-      <version>2.15.0</version>
+      <version>${beam.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.beam</groupId>
       <artifactId>beam-sdks-java-io-parquet</artifactId>
-      <version>2.15.0</version>
+      <version>${beam.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.beam</groupId>
       <artifactId>beam-runners-direct-java</artifactId>
-      <version>2.15.0</version>
+      <version>${beam.version}</version>
       <scope>runtime</scope>
     </dependency>
     <dependency>
@@ -58,6 +60,35 @@
       <artifactId>avro-compiler</artifactId>
       <version>${avro.version}</version>
     </dependency>
+
+    <!-- Spark -->
+    <dependency>
+      <groupId>org.apache.beam</groupId>
+      <artifactId>beam-runners-spark</artifactId>
+      <version>${beam.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-core_${scala.compat.version}</artifactId>
+      <version>${spark.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-streaming_${scala.compat.version}</artifactId>
+      <version>${spark.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.module</groupId>
+      <artifactId>jackson-module-scala_${scala.compat.version}</artifactId>
+      <version>2.9.0.pr3</version>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-annotations</artifactId>
+      <version>2.9.3</version>
+    </dependency>
+<!--    jackson-annotations-->
 
     <!-- Test -->
     <dependency>
@@ -168,6 +199,40 @@
             <goals>
               <goal>test</goal>
             </goals>
+          </execution>
+        </executions>
+      </plugin>
+    <!-- Spark -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <configuration>
+          <createDependencyReducedPom>false</createDependencyReducedPom>
+          <filters>
+            <filter>
+              <artifact>*:*</artifact>
+              <excludes>
+                <exclude>META-INF/*.SF</exclude>
+                <exclude>META-INF/*.DSA</exclude>
+                <exclude>META-INF/*.RSA</exclude>
+              </excludes>
+            </filter>
+          </filters>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <shadedArtifactAttached>true</shadedArtifactAttached>
+              <shadedClassifierName>shaded</shadedClassifierName>
+              <transformers>
+                <transformer
+                        implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+              </transformers>
+            </configuration>
           </execution>
         </executions>
       </plugin>

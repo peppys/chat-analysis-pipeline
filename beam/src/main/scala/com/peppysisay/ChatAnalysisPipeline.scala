@@ -7,6 +7,7 @@ import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage
 import org.apache.avro.io.DecoderFactory
 import org.apache.avro.specific.SpecificDatumReader
 import org.apache.beam.sdk.Pipeline
+import org.apache.beam.sdk.coders.AvroCoder
 import org.apache.beam.sdk.io.FileIO
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO
 import org.apache.beam.sdk.io.parquet.ParquetIO
@@ -14,7 +15,7 @@ import org.apache.beam.sdk.options.{Default, Description, PipelineOptions, Pipel
 import org.apache.beam.sdk.transforms.DoFn.ProcessElement
 import org.apache.beam.sdk.transforms.windowing.{FixedWindows, Window}
 import org.apache.beam.sdk.transforms.{DoFn, ParDo}
-import org.joda.time.Duration
+import org.joda.time.{Duration, Instant}
 
 object ChatAnalysisPipeline {
 
@@ -26,16 +27,22 @@ object ChatAnalysisPipeline {
 
     val pipeline = Pipeline.create(options)
 
-    pipeline
-      .apply(PubsubIO.readMessages().fromSubscription(options.getPubsubSubscription()))
-      .apply(ParDo.of(new DecodeAndValidatePubsubMessage()))
-      .apply(Window.into(FixedWindows.of(Duration.standardSeconds(1))))
-      .apply(ParDo.of(new DebugMessage()))
-      .apply(
-        FileIO.write()
-          .via(ParquetIO.sink(OutputRecord.getClassSchema()))
-          .to(options.getOutput())
-          .withSuffix(".parquet")
+    val input = pipeline
+      .apply("ReadPubsubMessages", PubsubIO.readMessages.fromSubscription(options.getPubsubSubscription()))
+      .apply("ValidateMessages", ParDo.of(new DecodeAndValidatePubsubMessage()))
+
+    val windowedWords =
+      input.apply(
+        Window.into(FixedWindows.of(Duration.standardMinutes(1))))
+
+    windowedWords
+      .apply("DebugMessages", ParDo.of(new DebugMessage()))
+      .setCoder(AvroCoder.of(OutputRecord.getClassSchema))
+      .apply("Output",
+        FileIO.write[GenericRecord]()
+          .via(ParquetIO.sink(OutputRecord.getClassSchema))
+          .to("/output")
+          .withSuffix(".json")
           .withNumShards(1)
       )
 
@@ -65,7 +72,7 @@ class DecodeAndValidatePubsubMessage extends DoFn[PubsubMessage, InputRecord] {
       val decoder = DecoderFactory.get.jsonDecoder(InputRecord.getClassSchema, new String(context.element().getPayload))
       val record = reader.read(null, decoder);
 
-      context.output(record)
+      context.outputWithTimestamp(record, new Instant())
     } catch {
       case exception: Exception => exception.printStackTrace()
     }
