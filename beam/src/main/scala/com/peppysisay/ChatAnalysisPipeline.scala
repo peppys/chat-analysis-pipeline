@@ -85,13 +85,13 @@ class DebugMessage extends DoFn[GenericRecord, GenericRecord] {
 trait ChatAnalysisPipelineOptions extends PipelineOptions {
 
   @Description("Pubsub subscription")
-  @Default.String("projects/personal-site-staging-a449f/subscriptions/group-chat-message-data-flow")
+  @Default.String("projects/steam-aria-256204/subscriptions/data-flow")
   def getPubsubSubscription(): String
 
   def setPubsubSubscription(topic: String)
 
   @Description("Path of the file to write to")
-  @Default.String("sdfsdfsdfsdfs")
+  @Default.String("gs://peppy-dev-data-flow")
   def getOutput(): String
 
   def setOutput(path: String)
