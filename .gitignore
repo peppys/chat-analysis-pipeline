@@ -2,8 +2,8 @@
 
 .idea
 
-beam/target
-beam/beam.iml
-beam/src/test
+scala-beam/target
+scala-beam/beam.iml
+scala-beam/src/test
 
 debug/venv-python-3
